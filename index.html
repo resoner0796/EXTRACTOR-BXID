@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Extractor de Códigos BX</title>
+    <title>Extractor de Códigos BX v4</title>
     <!-- Cargamos Tailwind CSS desde la CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -11,20 +11,29 @@
         body {
             font-family: 'Inter', sans-serif;
         }
-        /* Un pequeño estilo para la barra de scroll en el área de resultados */
-        #results-list::-webkit-scrollbar {
+        /* Estilos para las barras de scroll */
+        .custom-scrollbar::-webkit-scrollbar {
             width: 8px;
         }
-        #results-list::-webkit-scrollbar-track {
+        .custom-scrollbar::-webkit-scrollbar-track {
             background: #374151; /* gray-700 */
             border-radius: 10px;
         }
-        #results-list::-webkit-scrollbar-thumb {
+        .custom-scrollbar::-webkit-scrollbar-thumb {
             background: #4B5563; /* gray-600 */
             border-radius: 10px;
         }
-        #results-list::-webkit-scrollbar-thumb:hover {
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
             background: #6B7280; /* gray-500 */
+        }
+        /* Estilo para el botón de borrar item */
+        .delete-btn {
+            opacity: 0.5;
+            transition: all 0.15s ease;
+        }
+        .delete-btn:hover {
+            opacity: 1;
+            color: #ef4444; /* red-500 */
         }
     </style>
     <!-- Importamos la fuente Inter -->
@@ -32,29 +41,35 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
 </head>
-<body class="bg-gray-900 text-gray-200 flex items-center justify-center min-h-screen p-4">
+<body class="bg-gray-900 text-gray-200 flex items-center justify-center min-h-screen p-4 py-8">
 
     <!-- Notificación de copiado (oculta por defecto) -->
     <div id="copy-notification" class="fixed top-5 left-1/2 -translate-x-1/2 z-50 bg-green-500 text-white py-2 px-5 rounded-lg shadow-xl transition-all duration-300 opacity-0 transform -translate-y-10">
-        ¡Código copiado al portapapeles!
+        ¡Copiado al portapapeles!
     </div>
 
     <!-- Contenedor principal de la App -->
-    <main class="bg-gray-800 p-6 md:p-8 rounded-xl shadow-2xl w-full max-w-2xl space-y-6">
+    <main class="bg-gray-800 p-6 md:p-8 rounded-xl shadow-2xl w-full max-w-4xl space-y-6">
         
         <header>
             <h1 class="text-2xl font-bold text-center text-white">Extractor de Códigos BX</h1>
-            <p class="text-center text-gray-400">Pega tu texto y extrae los códigos que empiezan con "BX".</p>
+            <p class="text-center text-gray-400">Pega tu texto, extrae códigos, agrúpalos por orden y expórtalos.</p>
         </header>
 
         <!-- Área de Texto de Entrada -->
         <div class="space-y-2">
-            <label for="text-input" class="block text-sm font-medium text-gray-300">Pega tu texto aquí:</label>
+            <div class="flex justify-between items-center">
+                <label for="text-input" class="block text-sm font-medium text-gray-300">Pega tu texto aquí:</label>
+                <!-- NUEVO: Botón Limpiar Texto -->
+                <button id="clear-text-btn" class="text-xs text-gray-400 hover:text-white hover:bg-gray-700 px-2 py-1 rounded-md transition-colors">
+                    Limpiar
+                </button>
+            </div>
             <textarea
                 id="text-input"
                 rows="8"
-                class="w-full p-4 bg-gray-700 border border-gray-600 rounded-lg text-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow duration-200"
-                placeholder="Ejemplo: El código BX12345 está activo, pero el BX67890 no..."
+                class="w-full p-4 bg-gray-700 border border-gray-600 rounded-lg text-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow duration-200 custom-scrollbar"
+                placeholder="Ejemplo: El código BX9006587389ABC está activo, pero el BX9006587389XYZ no..."
             ></textarea>
         </div>
 
@@ -79,33 +94,62 @@
             </div>
         </div>
 
-        <!-- Área de Resultados -->
-        <div class="space-y-4">
-            <!-- Contenedor para el título, contador y botón "Copiar Todos" -->
-            <div class="flex justify-between items-center gap-4">
-                <!-- Título y Contador -->
-                <div class="flex items-center flex-wrap gap-2">
-                    <h2 class="text-lg font-semibold text-white">Resultados:</h2>
-                    <!-- NUEVO: Contador de BX -->
-                    <span id="bx-counter" class="text-sm font-medium bg-blue-200 text-blue-800 px-2.5 py-0.5 rounded-full">Total: 0</span>
+        <!-- Nueva sección con 2 columnas: Resultados y Resumen -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            
+            <!-- Columna 1: Lista de Resultados -->
+            <div class="space-y-4">
+                <div class="flex justify-between items-center gap-4">
+                    <div class="flex items-center flex-wrap gap-2">
+                        <h2 class="text-lg font-semibold text-white">Resultados:</h2>
+                        <span id="bx-counter" class="text-sm font-medium bg-blue-200 text-blue-800 px-2.5 py-0.5 rounded-full">Total: 0</span>
+                    </div>
+                    <!-- NUEVO: Botón Limpiar Lista -->
+                    <button id="clear-list-btn" class="text-xs text-gray-400 hover:text-white hover:bg-gray-700 px-2 py-1 rounded-md transition-colors">
+                        Limpiar Lista
+                    </button>
                 </div>
                 
-                <button
-                    id="copy-all-btn"
-                    class="bg-green-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-green-700 transition-colors duration-200 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 focus:ring-offset-gray-800 flex-shrink-0"
+                <div
+                    id="results-list"
+                    class="w-full h-64 bg-gray-900 border border-gray-700 rounded-lg p-4 overflow-y-auto space-y-2 custom-scrollbar"
                 >
-                    Copiar Todos
-                </button>
+                    <p id="placeholder-text" class="text-gray-500">Aún no hay resultados.</p>
+                </div>
+                
+                <!-- Botones de Acción para la Lista -->
+                <div class="grid grid-cols-2 gap-3">
+                     <button
+                        id="copy-all-btn"
+                        class="w-full bg-green-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-green-700 transition-colors duration-200 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 focus:ring-offset-gray-800"
+                    >
+                        Copiar Todos
+                    </button>
+                    <!-- NUEVO: Botón Exportar -->
+                    <button
+                        id="export-txt-btn"
+                        class="w-full bg-gray-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-gray-700 transition-colors duration-200 text-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 focus:ring-offset-gray-800"
+                    >
+                        Exportar .txt
+                    </button>
+                </div>
             </div>
-            
-            <div
-                id="results-list"
-                class="w-full h-64 bg-gray-900 border border-gray-700 rounded-lg p-4 overflow-y-auto space-y-2"
-            >
-                <!-- Los resultados se insertarán aquí dinámicamente -->
-                <p id="placeholder-text" class="text-gray-500">Aún no hay resultados. Pega tu texto y presiona "Extraer".</p>
+
+            <!-- Columna 2: NUEVO Resumen por Orden -->
+            <div class="space-y-4">
+                <div class="flex items-center gap-2">
+                    <h2 class="text-lg font-semibold text-white">Resumen por Orden:</h2>
+                </div>
+                
+                <div
+                    id="summary-list"
+                    class="w-full h-64 bg-gray-900 border border-gray-700 rounded-lg p-4 overflow-y-auto space-y-2 custom-scrollbar"
+                >
+                    <p id="summary-placeholder" class="text-gray-500">Aquí aparecerá el conteo por orden.</p>
+                </div>
             </div>
-        </div>
+
+        </div> <!-- Fin del grid de 2 columnas -->
     </main>
 
     <script>
@@ -117,18 +161,38 @@
         const copyNotification = document.getElementById('copy-notification');
         const copyAllBtn = document.getElementById('copy-all-btn');
         const accumulateToggle = document.getElementById('accumulate-toggle');
-        
-        // --- NUEVA Referencia al Contador ---
         const bxCounter = document.getElementById('bx-counter');
+        
+        // --- NUEVAS Referencias ---
+        const clearTextBtn = document.getElementById('clear-text-btn');
+        const clearListBtn = document.getElementById('clear-list-btn');
+        const exportTxtBtn = document.getElementById('export-txt-btn');
+        const summaryList = document.getElementById('summary-list');
+        const summaryPlaceholder = document.getElementById('summary-placeholder');
 
-        // --- 2. Función para Copiar al Portapapeles ---
+        // Regex mejorada: Busca \b (límite de palabra), "BX", captura (10 dígitos), y luego \S* (0 o más caracteres no espaciados)
+        const BX_REGEX = /\bBX(\d{10})\S*\b/g;
+
+        // --- 2. Funciones de Notificación y Copiado ---
+        let notificationTimeout;
+        function showNotification(message, isError = false) {
+            if (notificationTimeout) clearTimeout(notificationTimeout);
+            copyNotification.textContent = message;
+            copyNotification.classList.remove('bg-green-500', 'bg-red-500', 'opacity-0', '-translate-y-10');
+            copyNotification.classList.add(isError ? 'bg-red-500' : 'bg-green-500');
+            copyNotification.classList.add('opacity-100', 'translate-y-0');
+            notificationTimeout = setTimeout(() => {
+                copyNotification.classList.remove('opacity-100', 'translate-y-0');
+                copyNotification.classList.add('opacity-0', '-translate-y-10');
+            }, 2500);
+        }
+
         function copyToClipboard(text, successMessage) {
             const tempTextarea = document.createElement('textarea');
             tempTextarea.value = text;
             tempTextarea.style.position = 'fixed';
             tempTextarea.style.left = '-9999px';
             document.body.appendChild(tempTextarea);
-            
             tempTextarea.select();
             try {
                 document.execCommand('copy');
@@ -138,111 +202,187 @@
                 console.error('Error al copiar:', err);
                 showNotification('Error al copiar', true);
             }
-            
             document.body.removeChild(tempTextarea);
         }
 
-        // --- 3. Función para Mostrar Notificación ---
-        let notificationTimeout;
-        function showNotification(message, isError = false) {
-            if (notificationTimeout) {
-                clearTimeout(notificationTimeout);
-            }
-            copyNotification.textContent = message;
-            copyNotification.classList.remove('bg-green-500', 'bg-red-500', 'opacity-0', '-translate-y-10');
-            
-            if (isError) {
-                copyNotification.classList.add('bg-red-500');
-            } else {
-                copyNotification.classList.add('bg-green-500');
-            }
-            copyNotification.classList.add('opacity-100', 'translate-y-0');
+        // --- 3. Funciones de Actualización (Core Logic) ---
 
-            notificationTimeout = setTimeout(() => {
-                copyNotification.classList.remove('opacity-100', 'translate-y-0');
-                copyNotification.classList.add('opacity-0', '-translate-y-10');
-            }, 2500);
-        }
-
-        // --- 4. NUEVA Función para Actualizar el Contador ---
+        /** Actualiza el contador "Total: X" */
         function updateCounter() {
-            // Contamos cuántos elementos con el atributo 'data-code' hay en la lista
             const count = resultsList.querySelectorAll('[data-code]').length;
             bxCounter.textContent = `Total: ${count}`;
         }
 
-        // --- 5. Event Listener para el Botón "Extraer" (Actualizado) ---
+        /** NUEVO: Actualiza el resumen de "Orden: X pz" */
+        function updateSummary() {
+            const items = resultsList.querySelectorAll('[data-order]');
+            const counts = {}; // Objeto para guardar los conteos
+
+            if (items.length === 0) {
+                summaryList.innerHTML = '';
+                summaryList.appendChild(summaryPlaceholder);
+                return;
+            }
+
+            items.forEach(item => {
+                const order = item.dataset.order;
+                counts[order] = (counts[order] || 0) + 1;
+            });
+
+            summaryList.innerHTML = ''; // Limpiamos el resumen
+
+            // Ordenamos las órdenes alfabéticamente para un display consistente
+            const sortedOrders = Object.entries(counts).sort((a, b) => a[0].localeCompare(b[0]));
+
+            sortedOrders.forEach(([order, count]) => {
+                const item = document.createElement('div');
+                item.className = 'flex justify-between items-center bg-gray-700 p-2 rounded-md';
+                item.innerHTML = `
+                    <span class="text-sm text-gray-300 font-mono">${order}:</span>
+                    <span class="text-sm font-bold text-white">${count} pz</span>
+                `;
+                summaryList.appendChild(item);
+            });
+        }
+
+        /** NUEVO: Crea un item en la lista de resultados */
+        function createListItem(fullCode, orderNum) {
+            if (placeholderText.parentElement === resultsList) {
+                placeholderText.remove();
+            }
+
+            const item = document.createElement('div');
+            item.className = 'flex justify-between items-center p-2 bg-gray-700 rounded-lg text-white font-mono text-sm';
+            item.dataset.code = fullCode;
+            item.dataset.order = orderNum;
+
+            // Span para el texto (copiable)
+            const textSpan = document.createElement('span');
+            textSpan.textContent = fullCode;
+            textSpan.className = 'cursor-pointer hover:text-blue-300';
+            textSpan.addEventListener('click', () => {
+                copyToClipboard(fullCode, `¡Copiado: ${fullCode}!`);
+            });
+
+            // Botón 'x' para borrar
+            const deleteButton = document.createElement('button');
+            deleteButton.textContent = '✕'; // Carácter 'X'
+            deleteButton.className = 'delete-btn font-bold px-2';
+            deleteButton.addEventListener('click', () => {
+                item.remove(); // Borra el item
+                // Re-calculamos todo
+                updateCounter();
+                updateSummary();
+                // Si la lista queda vacía, poner el placeholder
+                if (resultsList.children.length === 0) {
+                    resultsList.appendChild(placeholderText);
+                }
+            });
+
+            item.appendChild(textSpan);
+            item.appendChild(deleteButton);
+            resultsList.appendChild(item);
+        }
+
+        /** NUEVO: Función para limpiar la lista de resultados */
+        function clearList() {
+            resultsList.innerHTML = '';
+            resultsList.appendChild(placeholderText);
+            placeholderText.textContent = 'Aún no hay resultados.';
+            updateCounter();
+            updateSummary();
+        }
+
+        // --- 4. Event Listeners Principales ---
+
+        /** Botón Extraer */
         extractBtn.addEventListener('click', () => {
             const inputText = textInput.value;
             const accumulate = accumulateToggle.checked;
             
-            const regex = /\bBX\S+/g;
-            const matches = inputText.match(regex);
-
             if (!accumulate) {
-                resultsList.innerHTML = '';
+                clearList();
             }
 
-            if (matches && matches.length > 0) {
-                const existingCodes = new Set(
-                    Array.from(resultsList.querySelectorAll('[data-code]')).map(el => el.dataset.code)
-                );
-                const uniqueNewMatches = [...new Set(matches)];
+            // Usamos un Set para los códigos que ya están en la lista
+            const existingCodes = new Set(
+                Array.from(resultsList.querySelectorAll('[data-code]')).map(el => el.dataset.code)
+            );
 
-                if (placeholderText.parentElement === resultsList) {
-                    placeholderText.remove();
-                }
+            let match;
+            let foundNew = false;
+            // Usamos un loop con exec para capturar los grupos de la regex
+            while ((match = BX_REGEX.exec(inputText)) !== null) {
+                const fullCode = match[0]; // Ej: BX1234567890ABC
+                const orderNum = match[1]; // Ej: 1234567890
 
-                uniqueNewMatches.forEach(match => {
-                    if (!existingCodes.has(match)) {
-                        const item = document.createElement('div');
-                        item.textContent = match;
-                        item.dataset.code = match; // Usamos data-attribute para contarlos
-                        
-                        item.className = 'p-3 bg-gray-700 rounded-lg cursor-pointer hover:bg-gray-600 transition-colors duration-150 text-white font-mono';
-                        
-                        item.addEventListener('click', () => {
-                            copyToClipboard(match, `¡Copiado: ${match}!`);
-                        });
-                        
-                        resultsList.appendChild(item);
-                    }
-                });
-
-                if (accumulate) {
-                    textInput.value = '';
-                }
-
-            } else {
-                if (resultsList.children.length === 0) {
-                    resultsList.appendChild(placeholderText);
-                    placeholderText.textContent = 'No se encontraron códigos "BX" en este texto.';
+                if (!existingCodes.has(fullCode)) {
+                    createListItem(fullCode, orderNum);
+                    existingCodes.add(fullCode); // Añadimos al Set para no duplicar en este mismo batch
+                    foundNew = true;
                 }
             }
 
-            if (resultsList.children.length === 0) {
-                resultsList.innerHTML = '';
-                resultsList.appendChild(placeholderText);
-                placeholderText.textContent = 'Aún no hay resultados.';
+            if (accumulate) {
+                textInput.value = ''; // Limpiamos el input si acumulamos
             }
 
-            // --- LLAMAMOS A LA FUNCIÓN DEL CONTADOR ---
-            // Se llama al final para que cuente el total después de añadir o limpiar
+            // Actualizamos contadores y resumen
             updateCounter();
+            updateSummary();
+
+            if (!foundNew && resultsList.children.length === 0) {
+                placeholderText.textContent = 'No se encontraron códigos "BX" válidos.';
+            }
         });
 
-        // --- 6. Event Listener para el Botón "Copiar Todos" ---
+        /** Botón Copiar Todos */
         copyAllBtn.addEventListener('click', () => {
             const allCodes = Array.from(resultsList.querySelectorAll('[data-code]'))
                                 .map(el => el.dataset.code);
-
             if (allCodes.length === 0) {
-                showNotification('No hay códigos en la lista para copiar.', true);
+                showNotification('No hay códigos para copiar.', true);
                 return;
             }
-
             const textToCopy = allCodes.join('\n');
             copyToClipboard(textToCopy, `¡Copiados ${allCodes.length} códigos!`);
+        });
+
+        // --- 5. NUEVOS Event Listeners ---
+
+        /** Botón Exportar .txt */
+        exportTxtBtn.addEventListener('click', () => {
+            const allCodes = Array.from(resultsList.querySelectorAll('[data-code]'))
+                                .map(el => el.dataset.code);
+            if (allCodes.length === 0) {
+                showNotification('No hay códigos para exportar.', true);
+                return;
+            }
+            
+            const textToExport = allCodes.join('\n');
+            const blob = new Blob([textToExport], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `bx_codigos_export_${new Date().toISOString().split('T')[0]}.txt`; // Ej: bx_codigos_export_2025-11-08.txt
+            document.body.appendChild(a);
+            a.click();
+            
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            showNotification(`¡Exportando ${allCodes.length} códigos!`);
+        });
+
+        /** Botón Limpiar Texto de Entrada */
+        clearTextBtn.addEventListener('click', () => {
+            textInput.value = '';
+        });
+
+        /** Botón Limpiar Lista de Resultados */
+        clearListBtn.addEventListener('click', () => {
+            clearList();
         });
 
     </script>
