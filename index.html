@@ -35,7 +35,7 @@
 <body class="bg-gray-900 text-gray-200 flex items-center justify-center min-h-screen p-4">
 
     <!-- Notificación de copiado (oculta por defecto) -->
-    <div id="copy-notification" class="fixed top-5 left-1/2 -translate-x-1/2 bg-green-500 text-white py-2 px-5 rounded-lg shadow-xl transition-all duration-300 opacity-0 transform -translate-y-10">
+    <div id="copy-notification" class="fixed top-5 left-1/2 -translate-x-1/2 z-50 bg-green-500 text-white py-2 px-5 rounded-lg shadow-xl transition-all duration-300 opacity-0 transform -translate-y-10">
         ¡Código copiado al portapapeles!
     </div>
 
@@ -58,17 +58,46 @@
             ></textarea>
         </div>
 
-        <!-- Botón de Acción -->
-        <button
-            id="extract-btn"
-            class="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-800"
-        >
-            Extraer Códigos
-        </button>
+        <!-- Botón de Acción y Checkbox de Acumular -->
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <button
+                id="extract-btn"
+                class="w-full sm:w-auto bg-blue-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-700 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-800"
+            >
+                Extraer Códigos
+            </button>
+            
+            <div class="flex items-center justify-end sm:justify-center">
+                <input
+                    id="accumulate-toggle"
+                    type="checkbox"
+                    class="h-4 w-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500"
+                >
+                <label for="accumulate-toggle" class="ml-2 text-sm font-medium text-gray-300">
+                    Acumular resultados
+                </label>
+            </div>
+        </div>
 
         <!-- Área de Resultados -->
-        <div class="space-y-2">
-            <h2 class="text-lg font-semibold text-white">Resultados:</h2>
+        <div class="space-y-4">
+            <!-- Contenedor para el título, contador y botón "Copiar Todos" -->
+            <div class="flex justify-between items-center gap-4">
+                <!-- Título y Contador -->
+                <div class="flex items-center flex-wrap gap-2">
+                    <h2 class="text-lg font-semibold text-white">Resultados:</h2>
+                    <!-- NUEVO: Contador de BX -->
+                    <span id="bx-counter" class="text-sm font-medium bg-blue-200 text-blue-800 px-2.5 py-0.5 rounded-full">Total: 0</span>
+                </div>
+                
+                <button
+                    id="copy-all-btn"
+                    class="bg-green-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-green-700 transition-colors duration-200 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 focus:ring-offset-gray-800 flex-shrink-0"
+                >
+                    Copiar Todos
+                </button>
+            </div>
+            
             <div
                 id="results-list"
                 class="w-full h-64 bg-gray-900 border border-gray-700 rounded-lg p-4 overflow-y-auto space-y-2"
@@ -86,43 +115,39 @@
         const resultsList = document.getElementById('results-list');
         const placeholderText = document.getElementById('placeholder-text');
         const copyNotification = document.getElementById('copy-notification');
+        const copyAllBtn = document.getElementById('copy-all-btn');
+        const accumulateToggle = document.getElementById('accumulate-toggle');
+        
+        // --- NUEVA Referencia al Contador ---
+        const bxCounter = document.getElementById('bx-counter');
 
         // --- 2. Función para Copiar al Portapapeles ---
-        // Usamos document.execCommand('copy') ya que es más confiable en iframes
-        function copyToClipboard(text) {
-            // Creamos un textarea temporal
+        function copyToClipboard(text, successMessage) {
             const tempTextarea = document.createElement('textarea');
             tempTextarea.value = text;
-            
-            // Lo hacemos invisible y lo añadimos al body
             tempTextarea.style.position = 'fixed';
             tempTextarea.style.left = '-9999px';
             document.body.appendChild(tempTextarea);
             
-            // Seleccionamos el texto y copiamos
             tempTextarea.select();
             try {
                 document.execCommand('copy');
-                // Mostramos la notificación
-                showNotification(`¡Copiado: ${text}!`);
+                const msg = successMessage || `¡Copiado: ${text}!`;
+                showNotification(msg);
             } catch (err) {
                 console.error('Error al copiar:', err);
                 showNotification('Error al copiar', true);
             }
             
-            // Removemos el textarea temporal
             document.body.removeChild(tempTextarea);
         }
 
         // --- 3. Función para Mostrar Notificación ---
         let notificationTimeout;
         function showNotification(message, isError = false) {
-            // Limpiamos cualquier timeout anterior
             if (notificationTimeout) {
                 clearTimeout(notificationTimeout);
             }
-
-            // Configuramos el mensaje y el estilo
             copyNotification.textContent = message;
             copyNotification.classList.remove('bg-green-500', 'bg-red-500', 'opacity-0', '-translate-y-10');
             
@@ -131,55 +156,93 @@
             } else {
                 copyNotification.classList.add('bg-green-500');
             }
-            // Hacemos visible la notificación
             copyNotification.classList.add('opacity-100', 'translate-y-0');
 
-            // La ocultamos después de 2.5 segundos
             notificationTimeout = setTimeout(() => {
                 copyNotification.classList.remove('opacity-100', 'translate-y-0');
                 copyNotification.classList.add('opacity-0', '-translate-y-10');
             }, 2500);
         }
 
-        // --- 4. Event Listener para el Botón "Extraer" ---
+        // --- 4. NUEVA Función para Actualizar el Contador ---
+        function updateCounter() {
+            // Contamos cuántos elementos con el atributo 'data-code' hay en la lista
+            const count = resultsList.querySelectorAll('[data-code]').length;
+            bxCounter.textContent = `Total: ${count}`;
+        }
+
+        // --- 5. Event Listener para el Botón "Extraer" (Actualizado) ---
         extractBtn.addEventListener('click', () => {
             const inputText = textInput.value;
+            const accumulate = accumulateToggle.checked;
             
-            // Expresión regular para encontrar palabras que comiencen con "BX"
-            // \b = Límite de palabra (para no coincidir con "ABX123")
-            // BX = El texto literal
-            // \S+ = Uno o más caracteres que NO sean espacios en blanco
             const regex = /\bBX\S+/g;
             const matches = inputText.match(regex);
 
-            // Limpiamos los resultados anteriores
-            resultsList.innerHTML = '';
+            if (!accumulate) {
+                resultsList.innerHTML = '';
+            }
 
             if (matches && matches.length > 0) {
-                // Usamos un Set para eliminar duplicados, por si acaso
-                const uniqueMatches = [...new Set(matches)];
+                const existingCodes = new Set(
+                    Array.from(resultsList.querySelectorAll('[data-code]')).map(el => el.dataset.code)
+                );
+                const uniqueNewMatches = [...new Set(matches)];
 
-                uniqueMatches.forEach(match => {
-                    // Creamos un nuevo elemento div para cada código
-                    const item = document.createElement('div');
-                    item.textContent = match;
-                    
-                    // Añadimos clases de Tailwind para el estilo
-                    item.className = 'p-3 bg-gray-700 rounded-lg cursor-pointer hover:bg-gray-600 transition-colors duration-150 text-white font-mono';
-                    
-                    // Añadimos el evento de clic para copiar
-                    item.addEventListener('click', () => {
-                        copyToClipboard(match);
-                    });
-                    
-                    // Lo añadimos a la lista de resultados
-                    resultsList.appendChild(item);
+                if (placeholderText.parentElement === resultsList) {
+                    placeholderText.remove();
+                }
+
+                uniqueNewMatches.forEach(match => {
+                    if (!existingCodes.has(match)) {
+                        const item = document.createElement('div');
+                        item.textContent = match;
+                        item.dataset.code = match; // Usamos data-attribute para contarlos
+                        
+                        item.className = 'p-3 bg-gray-700 rounded-lg cursor-pointer hover:bg-gray-600 transition-colors duration-150 text-white font-mono';
+                        
+                        item.addEventListener('click', () => {
+                            copyToClipboard(match, `¡Copiado: ${match}!`);
+                        });
+                        
+                        resultsList.appendChild(item);
+                    }
                 });
+
+                if (accumulate) {
+                    textInput.value = '';
+                }
+
             } else {
-                // Si no hay coincidencias, mostramos el mensaje original
-                resultsList.appendChild(placeholderText);
-                placeholderText.textContent = 'No se encontraron códigos que comiencen con "BX".';
+                if (resultsList.children.length === 0) {
+                    resultsList.appendChild(placeholderText);
+                    placeholderText.textContent = 'No se encontraron códigos "BX" en este texto.';
+                }
             }
+
+            if (resultsList.children.length === 0) {
+                resultsList.innerHTML = '';
+                resultsList.appendChild(placeholderText);
+                placeholderText.textContent = 'Aún no hay resultados.';
+            }
+
+            // --- LLAMAMOS A LA FUNCIÓN DEL CONTADOR ---
+            // Se llama al final para que cuente el total después de añadir o limpiar
+            updateCounter();
+        });
+
+        // --- 6. Event Listener para el Botón "Copiar Todos" ---
+        copyAllBtn.addEventListener('click', () => {
+            const allCodes = Array.from(resultsList.querySelectorAll('[data-code]'))
+                                .map(el => el.dataset.code);
+
+            if (allCodes.length === 0) {
+                showNotification('No hay códigos en la lista para copiar.', true);
+                return;
+            }
+
+            const textToCopy = allCodes.join('\n');
+            copyToClipboard(textToCopy, `¡Copiados ${allCodes.length} códigos!`);
         });
 
     </script>
