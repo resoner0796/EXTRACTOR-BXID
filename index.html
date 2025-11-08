@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Extractor de Códigos BX v4</title>
+    <title>Extractor de Códigos BX v5</title>
     <!-- Cargamos Tailwind CSS desde la CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -60,7 +60,6 @@
         <div class="space-y-2">
             <div class="flex justify-between items-center">
                 <label for="text-input" class="block text-sm font-medium text-gray-300">Pega tu texto aquí:</label>
-                <!-- NUEVO: Botón Limpiar Texto -->
                 <button id="clear-text-btn" class="text-xs text-gray-400 hover:text-white hover:bg-gray-700 px-2 py-1 rounded-md transition-colors">
                     Limpiar
                 </button>
@@ -104,7 +103,6 @@
                         <h2 class="text-lg font-semibold text-white">Resultados:</h2>
                         <span id="bx-counter" class="text-sm font-medium bg-blue-200 text-blue-800 px-2.5 py-0.5 rounded-full">Total: 0</span>
                     </div>
-                    <!-- NUEVO: Botón Limpiar Lista -->
                     <button id="clear-list-btn" class="text-xs text-gray-400 hover:text-white hover:bg-gray-700 px-2 py-1 rounded-md transition-colors">
                         Limpiar Lista
                     </button>
@@ -117,7 +115,6 @@
                     <p id="placeholder-text" class="text-gray-500">Aún no hay resultados.</p>
                 </div>
                 
-                <!-- Botones de Acción para la Lista -->
                 <div class="grid grid-cols-2 gap-3">
                      <button
                         id="copy-all-btn"
@@ -125,7 +122,6 @@
                     >
                         Copiar Todos
                     </button>
-                    <!-- NUEVO: Botón Exportar -->
                     <button
                         id="export-txt-btn"
                         class="w-full bg-gray-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-gray-700 transition-colors duration-200 text-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 focus:ring-offset-gray-800"
@@ -135,10 +131,15 @@
                 </div>
             </div>
 
-            <!-- Columna 2: NUEVO Resumen por Orden -->
+            <!-- Columna 2: Resumen por Orden -->
             <div class="space-y-4">
-                <div class="flex items-center gap-2">
+                <!-- NUEVO: Contadores de Resumen -->
+                <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-2">
                     <h2 class="text-lg font-semibold text-white">Resumen por Orden:</h2>
+                    <div class="flex items-center gap-3 flex-shrink-0">
+                        <span id="order-counter" class="text-sm font-medium bg-gray-600 text-gray-200 px-2.5 py-0.5 rounded-full">Órdenes: 0</span>
+                        <span id="piece-counter-summary" class="text-sm font-medium bg-gray-600 text-gray-200 px-2.5 py-0.5 rounded-full">Piezas: 0</span>
+                    </div>
                 </div>
                 
                 <div
@@ -163,12 +164,15 @@
         const accumulateToggle = document.getElementById('accumulate-toggle');
         const bxCounter = document.getElementById('bx-counter');
         
-        // --- NUEVAS Referencias ---
         const clearTextBtn = document.getElementById('clear-text-btn');
         const clearListBtn = document.getElementById('clear-list-btn');
         const exportTxtBtn = document.getElementById('export-txt-btn');
         const summaryList = document.getElementById('summary-list');
         const summaryPlaceholder = document.getElementById('summary-placeholder');
+
+        // --- NUEVAS Referencias (Contadores de Resumen) ---
+        const orderCounter = document.getElementById('order-counter');
+        const pieceCounterSummary = document.getElementById('piece-counter-summary');
 
         // Regex mejorada: Busca \b (límite de palabra), "BX", captura (10 dígitos), y luego \S* (0 o más caracteres no espaciados)
         const BX_REGEX = /\bBX(\d{10})\S*\b/g;
@@ -207,16 +211,26 @@
 
         // --- 3. Funciones de Actualización (Core Logic) ---
 
-        /** Actualiza el contador "Total: X" */
+        /** Actualiza el contador "Total: X" y el contador "Piezas: X" */
         function updateCounter() {
             const count = resultsList.querySelectorAll('[data-code]').length;
             bxCounter.textContent = `Total: ${count}`;
+            pieceCounterSummary.textContent = `Piezas: ${count}`; // Actualiza el contador de piezas del resumen
         }
 
-        /** NUEVO: Actualiza el resumen de "Orden: X pz" */
+        /** Actualiza el resumen de "Orden: X pz" y el contador "Órdenes: X" */
         function updateSummary() {
             const items = resultsList.querySelectorAll('[data-order]');
             const counts = {}; // Objeto para guardar los conteos
+
+            items.forEach(item => {
+                const order = item.dataset.order;
+                counts[order] = (counts[order] || 0) + 1;
+            });
+
+            // --- Actualiza contador de ÓRDENES ---
+            const uniqueOrderCount = Object.keys(counts).length;
+            orderCounter.textContent = `Órdenes: ${uniqueOrderCount}`;
 
             if (items.length === 0) {
                 summaryList.innerHTML = '';
@@ -224,14 +238,8 @@
                 return;
             }
 
-            items.forEach(item => {
-                const order = item.dataset.order;
-                counts[order] = (counts[order] || 0) + 1;
-            });
-
             summaryList.innerHTML = ''; // Limpiamos el resumen
 
-            // Ordenamos las órdenes alfabéticamente para un display consistente
             const sortedOrders = Object.entries(counts).sort((a, b) => a[0].localeCompare(b[0]));
 
             sortedOrders.forEach(([order, count]) => {
@@ -245,7 +253,7 @@
             });
         }
 
-        /** NUEVO: Crea un item en la lista de resultados */
+        /** Crea un item en la lista de resultados */
         function createListItem(fullCode, orderNum) {
             if (placeholderText.parentElement === resultsList) {
                 placeholderText.remove();
@@ -256,7 +264,6 @@
             item.dataset.code = fullCode;
             item.dataset.order = orderNum;
 
-            // Span para el texto (copiable)
             const textSpan = document.createElement('span');
             textSpan.textContent = fullCode;
             textSpan.className = 'cursor-pointer hover:text-blue-300';
@@ -264,16 +271,14 @@
                 copyToClipboard(fullCode, `¡Copiado: ${fullCode}!`);
             });
 
-            // Botón 'x' para borrar
             const deleteButton = document.createElement('button');
-            deleteButton.textContent = '✕'; // Carácter 'X'
+            deleteButton.textContent = '✕';
             deleteButton.className = 'delete-btn font-bold px-2';
             deleteButton.addEventListener('click', () => {
-                item.remove(); // Borra el item
+                item.remove();
                 // Re-calculamos todo
                 updateCounter();
                 updateSummary();
-                // Si la lista queda vacía, poner el placeholder
                 if (resultsList.children.length === 0) {
                     resultsList.appendChild(placeholderText);
                 }
@@ -284,13 +289,13 @@
             resultsList.appendChild(item);
         }
 
-        /** NUEVO: Función para limpiar la lista de resultados */
+        /** Función para limpiar la lista de resultados */
         function clearList() {
             resultsList.innerHTML = '';
             resultsList.appendChild(placeholderText);
             placeholderText.textContent = 'Aún no hay resultados.';
-            updateCounter();
-            updateSummary();
+            updateCounter(); // Esto pondrá Piezas: 0 y Total: 0
+            updateSummary(); // Esto pondrá Órdenes: 0 y limpiará la lista
         }
 
         // --- 4. Event Listeners Principales ---
@@ -304,27 +309,25 @@
                 clearList();
             }
 
-            // Usamos un Set para los códigos que ya están en la lista
             const existingCodes = new Set(
                 Array.from(resultsList.querySelectorAll('[data-code]')).map(el => el.dataset.code)
             );
 
             let match;
             let foundNew = false;
-            // Usamos un loop con exec para capturar los grupos de la regex
             while ((match = BX_REGEX.exec(inputText)) !== null) {
-                const fullCode = match[0]; // Ej: BX1234567890ABC
-                const orderNum = match[1]; // Ej: 1234567890
+                const fullCode = match[0];
+                const orderNum = match[1];
 
                 if (!existingCodes.has(fullCode)) {
                     createListItem(fullCode, orderNum);
-                    existingCodes.add(fullCode); // Añadimos al Set para no duplicar en este mismo batch
+                    existingCodes.add(fullCode);
                     foundNew = true;
                 }
             }
 
             if (accumulate) {
-                textInput.value = ''; // Limpiamos el input si acumulamos
+                textInput.value = '';
             }
 
             // Actualizamos contadores y resumen
@@ -348,7 +351,7 @@
             copyToClipboard(textToCopy, `¡Copiados ${allCodes.length} códigos!`);
         });
 
-        // --- 5. NUEVOS Event Listeners ---
+        // --- 5. Event Listeners de Utilidad ---
 
         /** Botón Exportar .txt */
         exportTxtBtn.addEventListener('click', () => {
@@ -365,7 +368,7 @@
             
             const a = document.createElement('a');
             a.href = url;
-            a.download = `bx_codigos_export_${new Date().toISOString().split('T')[0]}.txt`; // Ej: bx_codigos_export_2025-11-08.txt
+            a.download = `bx_codigos_export_${new Date().toISOString().split('T')[0]}.txt`;
             document.body.appendChild(a);
             a.click();
             
